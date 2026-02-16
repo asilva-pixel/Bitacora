@@ -144,6 +144,34 @@
       border-top: 1px solid #eee;
       margin: 26px 0;
     }
+    .escala-leyenda {
+      background: #f0f8ff;
+      border: 1px solid #b3d9ff;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .escala-leyenda-titulo {
+      color: #222;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    .escala-leyenda-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      font-size: 12px;
+      color: #555;
+    }
+    .escala-leyenda-item {
+      text-align: center;
+    }
+    .escala-leyenda-item strong {
+      display: block;
+      color: #fa345e;
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
   </style>
 </head>
 
@@ -173,6 +201,33 @@
 
       <hr />
 
+      <!-- LEYENDA DE LA ESCALA -->
+      <div class="escala-leyenda">
+        <div class="escala-leyenda-titulo">Escala de evaluación:</div>
+        <div class="escala-leyenda-grid">
+          <div class="escala-leyenda-item">
+            <strong>1</strong>
+            Bajo lo esperado
+          </div>
+          <div class="escala-leyenda-item">
+            <strong>2</strong>
+            Próximo a lo esperado
+          </div>
+          <div class="escala-leyenda-item">
+            <strong>3</strong>
+            Dentro de lo esperado
+          </div>
+          <div class="escala-leyenda-item">
+            <strong>4</strong>
+            Sobre lo esperado
+          </div>
+          <div class="escala-leyenda-item">
+            <strong>5</strong>
+            Excepcional
+          </div>
+        </div>
+      </div>
+
       <div id="preguntas"></div>
 
       <label>Comentarios (opcional)</label>
@@ -192,13 +247,13 @@
   const BASE_COLAB_URL = "https://n8n.openip.cl/webhook/basecolaboradores";
 
   const PREGUNTAS = [
-    { id: "p1", texto: "Hace seguimiento a mis compromisos hasta cerrar lo encomendado." },
+    { id: "p1", texto: "Hace seguimiento a sus compromisos hasta cerrar lo encomendado." },
     { id: "p2", texto: "Actúa con urgencia y prolijidad para cumplir lo comprometido." },
     { id: "p3", texto: "Mantiene estándares (calidad, plazos, cumplimiento de normas)." },
     { id: "p4", texto: "Prioriza y optimiza recursos/tiempo para llegar (y ojalá superar) el objetivo." },
     { id: "p5", texto: "Mejora procesos y propone soluciones que agregan valor." },
-    { id: "p6", texto: "Se adapta a cambios sin perder foco en objetivos." },
-    { id: "p7", texto: "Construye relaciones de largo plazo para resolver necesidades del cliente (externo/interno)." },
+    { id: "p6", texto: "Se adapta a cambios sin perder el foco en los objetivos." },
+    { id: "p7", texto: "Construye relaciones de largo plazo para resolver necesidades del cliente." },
     { id: "p8", texto: "Muestra interés genuino por entender y resolver." },
     { id: "p9", texto: "Trabaja inter-área para que la experiencia del cliente sea fluida." }
   ];
