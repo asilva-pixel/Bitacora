@@ -50,6 +50,7 @@
       border: 1px solid #ccc;
       border-radius: 8px;
       font-size: 14px;
+      box-sizing: border-box;
     }
     select {
       background-color: #fef2f3;
@@ -200,7 +201,7 @@
       <input id="gerenciaInput" name="gerencia" readonly placeholder="Se completa automáticamente" />
 
       <div class="small-note">
-        La lista de líderes/colaboradores se carga desde: <b>/webhook/basecolaboradores</b>.
+        La lista de líderes/colaboradores se carga desde: <b>https://n8n.openip.cl/webhook/basecolaboradores</b>.
       </div>
 
       <hr />
@@ -479,19 +480,16 @@
       return;
     }
 
-    // Deshabilitar botón mientras se envía
     submitBtn.disabled = true;
     submitBtn.textContent = "Enviando...";
     showSuccess("Enviando bitácora...");
 
-    // Recopilar todas las respuestas
     const respuestas = {};
     PREGUNTAS.forEach(function(p) {
       const input = document.querySelector('input[name="respuestas[' + p.id + ']"]:checked');
       respuestas[p.id] = input ? input.value : "";
     });
 
-    // Crear objeto con todos los datos
     const datos = {
       lider: lider,
       colaborador: colab,
@@ -503,7 +501,6 @@
 
     console.log("Enviando datos:", datos);
 
-    // Enviar a n8n
     fetch(BITACORA_URL, {
       method: "POST",
       headers: {
@@ -513,14 +510,13 @@
     })
     .then(function(res) {
       if (!res.ok) throw new Error("Error al enviar: " + res.status);
-      return res.json();
+      return res.text();
     })
     .then(function(data) {
       showSuccess("✅ Bitácora guardada exitosamente");
       submitBtn.disabled = false;
       submitBtn.textContent = "Enviar bitácora";
       
-      // Limpiar el formulario después de 2 segundos
       setTimeout(function() {
         document.getElementById("bitacoraForm").reset();
         document.getElementById("colaboradorSelect").disabled = true;
