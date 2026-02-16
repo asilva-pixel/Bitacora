@@ -180,7 +180,6 @@
       <label>Comentarios (opcional)</label>
       <textarea name="comentarios" placeholder="Contexto, ejemplos, acuerdos, próximos pasos…"></textarea>
 
-      <!-- Puedes incluir fecha si quieres (por defecto hoy) -->
       <label>Fecha</label>
       <input type="date" id="fecha" name="fecha" required />
 
@@ -207,7 +206,7 @@
     { id: "p9", texto: "Trabaja inter-área para que la experiencia del cliente sea fluida." }
   ];
 
-  // Escala (puedes renombrar)
+  // Escala
   const ESCALA = [
     { v: 1, label: "1" },
     { v: 2, label: "2" },
@@ -262,7 +261,6 @@
 
       ESCALA.forEach(s => {
         const label = document.createElement("label");
-        // name debe ser estable para backend: respuestas[p1], etc.
         label.innerHTML = `
           <input type="radio" name="respuestas[${p.id}]" value="${s.v}" required />
           <span>${s.label}</span>
@@ -275,57 +273,30 @@
     });
   }
 
-  // Cargar base de colaboradores y armar mapas
-  let base = []; // filas
-  let lideres = []; // únicos
-  let mapaLiderAColabs = new Map(); // lider -> [{nombre, gerencia, row_number}]
-  let mapaColabAGerencia = new Map(); // colaborador -> gerencia
+  // Variables globales
+  let lideres = [];
 
+  // Cargar líderes desde el webhook
   async function cargarBase() {
     try {
-      const res = await fetch(BASE_COLAB_URL);
+      const res = await fetch(`${BASE_COLAB_URL}?modo=lideres`);
       if (!res.ok) throw new Error(`GET basecolaboradores falló: ${res.status}`);
 
       const data = await res.json();
 
-      // Si tu endpoint devuelve { data: [...] }, descomenta:
-      // base = Array.isArray(data) ? data : (data.data || []);
-      base = Array.isArray(data) ? data : (data.data || []);
-
-      if (!Array.isArray(base) || base.length === 0) {
-        throw new Error("La base de colaboradores viene vacía o no es un array.");
+      // Extraer líderes del response
+      lideres = data.lideres || [];
+      
+      if (lideres.length === 0) {
+        throw new Error("No se encontraron líderes en la respuesta.");
       }
-
-      // construir mapas
-      mapaLiderAColabs.clear();
-      mapaColabAGerencia.clear();
-
-      base.forEach(r => {
-        const lider = r["Nombre Jefe Directo"];
-        const colab = r["Nombre Completo"];
-        const ger = r["Gerencia"];
-
-        if (lider && colab) {
-          if (!mapaLiderAColabs.has(lider)) mapaLiderAColabs.set(lider, []);
-          mapaLiderAColabs.get(lider).push({
-            nombre: colab,
-            gerencia: ger || "",
-            row_number: r["row_number"] ?? null
-          });
-        }
-        if (colab) mapaColabAGerencia.set(colab, ger || "");
-      });
-
-      lideres = [...new Set([...mapaLiderAColabs.keys()])].sort((a, b) => a.localeCompare(b, "es"));
 
       poblarSelectLideres();
 
     } catch (err) {
       console.error(err);
-      showError("No se pudo cargar la base de líderes/colaboradores. Revisa el webhook /basecolaboradores.");
-      // dejar selects inutilizables
+      showError("Error al cargar líderes: " + err.message);
       document.getElementById("liderSelect").innerHTML = `<option value="">Error cargando base</option>`;
-      document.getElementById("colaboradorSelect").innerHTML = `<option value="">-</option>`;
     }
   }
 
@@ -334,24 +305,25 @@
     liderSelect.innerHTML = `<option value="">Selecciona</option>` +
       lideres.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join("");
 
-    // si quieres autoselección vía querystring: ?lider=...
+    // Autoselección vía querystring: ?lider=...
     const params = new URLSearchParams(window.location.search);
     const liderQS = params.get("lider");
     const colabQS = params.get("colaborador");
 
     if (liderQS) {
       const match = lideres.find(l => norm(l) === norm(liderQS));
-      if (match) liderSelect.value = match;
-      liderSelect.dispatchEvent(new Event("change"));
+      if (match) {
+        liderSelect.value = match;
+        liderSelect.dispatchEvent(new Event("change"));
+      }
     }
 
     if (colabQS) {
-      // se setea después de que cargue el select de colaboradores
       window.__colabQS = colabQS;
     }
   }
 
-  function poblarColaboradoresDeLider(lider) {
+  async function poblarColaboradoresDeLider(lider) {
     const colabSelect = document.getElementById("colaboradorSelect");
     const gerenciaInput = document.getElementById("gerenciaInput");
 
@@ -359,35 +331,58 @@
     colabSelect.innerHTML = `<option value="">Cargando...</option>`;
     gerenciaInput.value = "";
 
-    const lista = mapaLiderAColabs.get(lider) || [];
-    const ordenada = lista
-      .slice()
-      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"));
+    try {
+      // Llamar al webhook con modo=colaboradores
+      const res = await fetch(`${BASE_COLAB_URL}?modo=colaboradores&lider=${encodeURIComponent(lider)}`);
+      if (!res.ok) throw new Error(`Error cargando colaboradores: ${res.status}`);
+      
+      const data = await res.json();
+      
+      if (data.error) {
+        throw new Error(data.error);
+      }
+      
+      const lista = data.colaboradores || [];
 
-    colabSelect.innerHTML = `<option value="">Selecciona</option>` +
-      ordenada.map(c => `<option value="${escapeHtml(c.nombre)}" data-gerencia="${escapeHtml(c.gerencia)}">${escapeHtml(c.nombre)}</option>`).join("");
+      if (lista.length === 0) {
+        colabSelect.innerHTML = `<option value="">No hay colaboradores</option>`;
+        colabSelect.disabled = true;
+        return;
+      }
 
-    colabSelect.disabled = false;
+      colabSelect.innerHTML = `<option value="">Selecciona</option>` +
+        lista.map(c => `<option value="${escapeHtml(c.nombre)}" data-gerencia="${escapeHtml(c.gerencia || '')}">${escapeHtml(c.nombre)}</option>`).join("");
 
-    // autoselección por querystring si existía
-    if (window.__colabQS) {
-      const target = window.__colabQS;
-      const options = [...colabSelect.options];
-      const matchOpt = options.find(o => norm(o.value) === norm(target));
-      if (matchOpt) colabSelect.value = matchOpt.value;
-      colabSelect.dispatchEvent(new Event("change"));
-      window.__colabQS = null;
+      colabSelect.disabled = false;
+
+      // Autoselección por querystring si existía
+      if (window.__colabQS) {
+        const target = window.__colabQS;
+        const options = [...colabSelect.options];
+        const matchOpt = options.find(o => norm(o.value) === norm(target));
+        if (matchOpt) {
+          colabSelect.value = matchOpt.value;
+          colabSelect.dispatchEvent(new Event("change"));
+        }
+        window.__colabQS = null;
+      }
+
+    } catch (err) {
+      console.error(err);
+      showError("Error cargando colaboradores: " + err.message);
+      colabSelect.innerHTML = `<option value="">Error</option>`;
+      colabSelect.disabled = true;
     }
   }
 
-  // Escapar HTML básico para evitar problemas con comillas/backticks en nombres
+  // Escapar HTML básico
   function escapeHtml(str) {
     return String(str ?? "")
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#039;");
+      .replaceAll("&", "&")
+      .replaceAll("<", "<")
+      .replaceAll(">", ">")
+      .replaceAll('"', """)
+      .replaceAll("'", "'");
   }
 
   // Eventos
@@ -410,7 +405,7 @@
     document.getElementById("gerenciaInput").value = ger;
   });
 
-  // Validación simple antes de enviar
+  // Validación antes de enviar
   document.getElementById("bitacoraForm").addEventListener("submit", (e) => {
     errorBox.style.display = "none";
     successBox.style.display = "none";
@@ -424,8 +419,6 @@
       return;
     }
 
-    // Si quieres evitar submit y hacerlo vía fetch, se puede.
-    // Por ahora queda submit normal al webhook POST /Bitácora.
     showSuccess("Enviando bitácora...");
   });
 
