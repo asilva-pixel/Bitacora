@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Bitácora de Feedback 2</title>
+  <title>Bitácora de Feedback</title>
 
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600&display=swap" rel="stylesheet" />
 
@@ -150,11 +150,10 @@
 <body>
   <div class="container">
     <img src="https://estudios.apprecio.com/hubfs/logos/Apprecio-logo-rojo.png" class="logo" />
-    <h1>Bitácora de Feedback 2</h1>
+    <h1>Bitácora de Feedback</h1>
     <div class="subtitle">Registro interno para trazabilidad de feedback (no es conversación, es evidencia de gestión).</div>
 
     <form id="bitacoraForm" method="POST" action="https://n8n.openip.cl/webhook/Bitácora">
-      <!-- Identificación -->
       <label>Líder</label>
       <select id="liderSelect" name="lider" required>
         <option value="">Cargando líderes...</option>
@@ -174,7 +173,6 @@
 
       <hr />
 
-      <!-- Preguntas -->
       <div id="preguntas"></div>
 
       <label>Comentarios (opcional)</label>
@@ -193,7 +191,6 @@
 <script>
   const BASE_COLAB_URL = "https://n8n.openip.cl/webhook/basecolaboradores";
 
-  // Preguntas (id estable para backend)
   const PREGUNTAS = [
     { id: "p1", texto: "Hace seguimiento a mis compromisos hasta cerrar lo encomendado." },
     { id: "p2", texto: "Actúa con urgencia y prolijidad para cumplir lo comprometido." },
@@ -206,17 +203,17 @@
     { id: "p9", texto: "Trabaja inter-área para que la experiencia del cliente sea fluida." }
   ];
 
-  // Escala
   const ESCALA = [
     { v: 1, label: "1" },
     { v: 2, label: "2" },
     { v: 3, label: "3" },
     { v: 4, label: "4" },
-    { v: 5, label: "5" },
+    { v: 5, label: "5" }
   ];
 
-  // Helpers
-  const norm = (s) => String(s ?? "").trim().toLowerCase();
+  const norm = function(s) {
+    return String(s || "").trim().toLowerCase();
+  };
 
   const errorBox = document.getElementById("errorBox");
   const successBox = document.getElementById("successBox");
@@ -239,32 +236,28 @@
     const yyyy = today.getFullYear();
     const mm = String(today.getMonth() + 1).padStart(2, "0");
     const dd = String(today.getDate()).padStart(2, "0");
-    input.value = `${yyyy}-${mm}-${dd}`;
+    input.value = yyyy + "-" + mm + "-" + dd;
   }
 
-  // Render preguntas
   function renderPreguntas() {
     const cont = document.getElementById("preguntas");
     cont.innerHTML = "";
 
-    PREGUNTAS.forEach((p, idx) => {
+    PREGUNTAS.forEach(function(p, idx) {
       const block = document.createElement("div");
       block.className = "block";
 
       const title = document.createElement("div");
       title.className = "q-title";
-      title.textContent = `${idx + 1}. ${p.texto}`;
+      title.textContent = (idx + 1) + ". " + p.texto;
       block.appendChild(title);
 
       const scale = document.createElement("div");
       scale.className = "scale";
 
-      ESCALA.forEach(s => {
+      ESCALA.forEach(function(s) {
         const label = document.createElement("label");
-        label.innerHTML = `
-          <input type="radio" name="respuestas[${p.id}]" value="${s.v}" required />
-          <span>${s.label}</span>
-        `;
+        label.innerHTML = '<input type="radio" name="respuestas[' + p.id + ']" value="' + s.v + '" required /><span>' + s.label + '</span>';
         scale.appendChild(label);
       });
 
@@ -273,45 +266,48 @@
     });
   }
 
-  // Variables globales
   let lideres = [];
 
-  // Cargar líderes desde el webhook
-  async function cargarBase() {
-    try {
-      const res = await fetch(`${BASE_COLAB_URL}?modo=lideres`);
-      if (!res.ok) throw new Error(`GET basecolaboradores falló: ${res.status}`);
+  function cargarBase() {
+    fetch(BASE_COLAB_URL + "?modo=lideres")
+      .then(function(res) {
+        if (!res.ok) throw new Error("GET basecolaboradores falló: " + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        lideres = data.lideres || [];
+        
+        if (lideres.length === 0) {
+          throw new Error("No se encontraron líderes en la respuesta.");
+        }
 
-      const data = await res.json();
-
-      // Extraer líderes del response
-      lideres = data.lideres || [];
-      
-      if (lideres.length === 0) {
-        throw new Error("No se encontraron líderes en la respuesta.");
-      }
-
-      poblarSelectLideres();
-
-    } catch (err) {
-      console.error(err);
-      showError("Error al cargar líderes: " + err.message);
-      document.getElementById("liderSelect").innerHTML = `<option value="">Error cargando base</option>`;
-    }
+        poblarSelectLideres();
+      })
+      .catch(function(err) {
+        console.error(err);
+        showError("Error al cargar líderes: " + err.message);
+        document.getElementById("liderSelect").innerHTML = '<option value="">Error cargando base</option>';
+      });
   }
 
   function poblarSelectLideres() {
     const liderSelect = document.getElementById("liderSelect");
-    liderSelect.innerHTML = `<option value="">Selecciona</option>` +
-      lideres.map(l => `<option value="${escapeHtml(l)}">${escapeHtml(l)}</option>`).join("");
+    let html = '<option value="">Selecciona</option>';
+    
+    lideres.forEach(function(l) {
+      html += '<option value="' + escapeHtml(l) + '">' + escapeHtml(l) + '</option>';
+    });
+    
+    liderSelect.innerHTML = html;
 
-    // Autoselección vía querystring: ?lider=...
     const params = new URLSearchParams(window.location.search);
     const liderQS = params.get("lider");
     const colabQS = params.get("colaborador");
 
     if (liderQS) {
-      const match = lideres.find(l => norm(l) === norm(liderQS));
+      const match = lideres.find(function(l) {
+        return norm(l) === norm(liderQS);
+      });
       if (match) {
         liderSelect.value = match;
         liderSelect.dispatchEvent(new Event("change"));
@@ -323,90 +319,92 @@
     }
   }
 
-  async function poblarColaboradoresDeLider(lider) {
+  function poblarColaboradoresDeLider(lider) {
     const colabSelect = document.getElementById("colaboradorSelect");
     const gerenciaInput = document.getElementById("gerenciaInput");
 
     colabSelect.disabled = true;
-    colabSelect.innerHTML = `<option value="">Cargando...</option>`;
+    colabSelect.innerHTML = '<option value="">Cargando...</option>';
     gerenciaInput.value = "";
 
-    try {
-      // Llamar al webhook con modo=colaboradores
-      const res = await fetch(`${BASE_COLAB_URL}?modo=colaboradores&lider=${encodeURIComponent(lider)}`);
-      if (!res.ok) throw new Error(`Error cargando colaboradores: ${res.status}`);
-      
-      const data = await res.json();
-      
-      if (data.error) {
-        throw new Error(data.error);
-      }
-      
-      const lista = data.colaboradores || [];
+    const url = BASE_COLAB_URL + "?modo=colaboradores&lider=" + encodeURIComponent(lider);
 
-      if (lista.length === 0) {
-        colabSelect.innerHTML = `<option value="">No hay colaboradores</option>`;
-        colabSelect.disabled = true;
-        return;
-      }
-
-      colabSelect.innerHTML = `<option value="">Selecciona</option>` +
-        lista.map(c => `<option value="${escapeHtml(c.nombre)}" data-gerencia="${escapeHtml(c.gerencia || '')}">${escapeHtml(c.nombre)}</option>`).join("");
-
-      colabSelect.disabled = false;
-
-      // Autoselección por querystring si existía
-      if (window.__colabQS) {
-        const target = window.__colabQS;
-        const options = [...colabSelect.options];
-        const matchOpt = options.find(o => norm(o.value) === norm(target));
-        if (matchOpt) {
-          colabSelect.value = matchOpt.value;
-          colabSelect.dispatchEvent(new Event("change"));
+    fetch(url)
+      .then(function(res) {
+        if (!res.ok) throw new Error("Error cargando colaboradores: " + res.status);
+        return res.json();
+      })
+      .then(function(data) {
+        if (data.error) {
+          throw new Error(data.error);
         }
-        window.__colabQS = null;
-      }
+        
+        const lista = data.colaboradores || [];
 
-    } catch (err) {
-      console.error(err);
-      showError("Error cargando colaboradores: " + err.message);
-      colabSelect.innerHTML = `<option value="">Error</option>`;
-      colabSelect.disabled = true;
-    }
+        if (lista.length === 0) {
+          colabSelect.innerHTML = '<option value="">No hay colaboradores</option>';
+          colabSelect.disabled = true;
+          return;
+        }
+
+        let html = '<option value="">Selecciona</option>';
+        lista.forEach(function(c) {
+          html += '<option value="' + escapeHtml(c.nombre) + '" data-gerencia="' + escapeHtml(c.gerencia || "") + '">' + escapeHtml(c.nombre) + '</option>';
+        });
+        
+        colabSelect.innerHTML = html;
+        colabSelect.disabled = false;
+
+        if (window.__colabQS) {
+          const target = window.__colabQS;
+          const options = Array.from(colabSelect.options);
+          const matchOpt = options.find(function(o) {
+            return norm(o.value) === norm(target);
+          });
+          if (matchOpt) {
+            colabSelect.value = matchOpt.value;
+            colabSelect.dispatchEvent(new Event("change"));
+          }
+          window.__colabQS = null;
+        }
+      })
+      .catch(function(err) {
+        console.error(err);
+        showError("Error cargando colaboradores: " + err.message);
+        colabSelect.innerHTML = '<option value="">Error</option>';
+        colabSelect.disabled = true;
+      });
   }
 
-  // Escapar HTML básico
   function escapeHtml(str) {
-    return String(str ?? "")
-      .replaceAll("&", "&")
-      .replaceAll("<", "<")
-      .replaceAll(">", ">")
-      .replaceAll('"', """)
-      .replaceAll("'", "'");
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
-  // Eventos
-  document.getElementById("liderSelect").addEventListener("change", (e) => {
+  document.getElementById("liderSelect").addEventListener("change", function(e) {
     const lider = e.target.value;
     const colabSelect = document.getElementById("colaboradorSelect");
     const gerenciaInput = document.getElementById("gerenciaInput");
 
     gerenciaInput.value = "";
-    colabSelect.innerHTML = `<option value="">Selecciona un líder primero</option>`;
+    colabSelect.innerHTML = '<option value="">Selecciona un líder primero</option>';
     colabSelect.disabled = true;
 
     if (!lider) return;
     poblarColaboradoresDeLider(lider);
   });
 
-  document.getElementById("colaboradorSelect").addEventListener("change", (e) => {
+  document.getElementById("colaboradorSelect").addEventListener("change", function(e) {
     const opt = e.target.selectedOptions[0];
     const ger = opt ? (opt.dataset.gerencia || "") : "";
     document.getElementById("gerenciaInput").value = ger;
   });
 
-  // Validación antes de enviar
-  document.getElementById("bitacoraForm").addEventListener("submit", (e) => {
+  document.getElementById("bitacoraForm").addEventListener("submit", function(e) {
     errorBox.style.display = "none";
     successBox.style.display = "none";
 
@@ -422,7 +420,6 @@
     showSuccess("Enviando bitácora...");
   });
 
-  // Init
   setTodayDate();
   renderPreguntas();
   cargarBase();
